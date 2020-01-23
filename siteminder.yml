@@ -1,0 +1,10 @@
+insights_url: "https://insights-collector.newrelic.com/v1/accounts/<your account id>/events" # Required; Insights ingest URL
+insights_key: "Your Key" # Required; Your insights api insert key
+port: "APM for SSO port" # Required; the port where the data is pushed from siteminder
+interval: 30s # Optional; Default 30s, valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h";this is the time we wait before sending the data to NR
+custom_attributes: # Optional; Key value pairs
+  owner: nr.expert.services
+debug: false # Optional; Default false, useful for debugging
+max_buffer_size: 100 # Optional; Default 100KB, the maximum buffer size in KB (plz, never exceed 1000KB which is the POST limit in insights!!). Data will be sent if interval OR max buffer size is reached whatever comes first
+max_request_retries: 5 # Optional; Default 5, the maximum number of retries for sending the data whene there network failures
+proxy_url: "Your proxy endpoint" # Optional; add your proxy endpoint if you need to send the data to NR via a proxy

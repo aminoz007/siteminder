@@ -1,0 +1,9 @@
+*.json
+test.*
+bin*
+vendor*
+*.tar.gz
+*.tar
+coverage*
+test*
+*.log
