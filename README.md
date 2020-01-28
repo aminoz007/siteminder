@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/release/aminoz007/siteminder.svg?style=flat-square)](https://github.com/aminoz007/siteminder/releases/latest)
 
 This is a solution to monitor CA SSO formerly known as CA siteminder. APM EPAgents listens for metrics from SSO clients (web agents or policy servers) on a specific port for metrics data. The port can be configured using the property `introscope.epagent.config.networkDataPort` in `IntroscopeEPAgent.properties` configuration file.
-This agent will replace the CA EPAgent so you have to stop your agent if running. The New Relic siteminder agent will create a server and listens to the `networkDataPort` and wait until data is pushed to that port. When the data is received, the sitemninder agent will collect it, parse it, format it and send it to New Relic.
+This agent will replace the CA EPAgent so you have to stop your agent first if running. The New Relic siteminder agent will create a server and listens to the `networkDataPort`, once the data is received, the sitemninder agent will collect it, parse it, format it and send it to New Relic.
 
 ## Support
 - Linux
@@ -13,12 +13,13 @@ This agent will replace the CA EPAgent so you have to stop your agent if running
 - Windows
 
 ## Setup
+
 1. Download the latest release from [here](https://github.com/aminoz007/siteminder/releases).
 2. Get your New Relic Insights Insert key: https://insights.newrelic.com/accounts/<ACCOUNT_ID>/manage/api_keys
-3. Set up configuration: see below for more information
+3. Set up configuration: see [below](https://github.com/aminoz007/siteminder#configuration) for more information
 
 ### Configuration
-- Two options are provided to configure the siteminder agent: via siteminder yaml file or via environement variables. 
+- Two options are provided to configure the siteminder agent: via `siteminder.yml` file or via environement variables. 
 - Please note that the environement variables configuration will always overwrite the yaml file configuration
     - Priority: Environement variables -> Yaml file configuration
 
@@ -26,12 +27,12 @@ This agent will replace the CA EPAgent so you have to stop your agent if running
 
 | Property (yaml) | Property (env variable) | Required | Default Value | Description
 | --- | --- | --- | --- | ---
-| insights_url | NR_INSIGHTS_URL | Yes | Not applicable | Insights ingest URL, which should be in this format: https://insights-collector.newrelic.com/v1/accounts/<yourAccountID>/events
+| insights_url | NR_INSIGHTS_URL | Yes | Not applicable | Insights ingest URL, which should be in this format: https://insights-collector.newrelic.com/v1/accounts/\<yourAccountID\>/events
 | insights_key | NR_INSIGHTS_KEY | Yes | Not applicable | Your Insights api insert key.
 | port | NR_PORT | Yes | Not applicable |  The port where the data is pushed from siteminder (check the description above for more details).
-| host | NR_HOST | No | localhost | The server where rhe networkDataPort is open
+| host | NR_HOST | No | localhost | The server where the networkDataPort is open
 | interval | NR_INTERVAL | No | 30s | FLush interval:  valid time units are **"ns", "us" (or "µs"), "ms", "s", "m", "h"**. This is the time we wait before sending the data to NR.
-| custom_attributes | NR_CUSTOM_ATTRS | No | Not applicable | Key value pairs tags to decorate NR events data. 
+| custom_attributes | NR_CUSTOM_ATTRS | No | Not applicable | Key value pairs tags used to decorate NR events data. 
 | debug | NR_DEBUG | No | false | Verbose logging, useful for debugging.
 | max_buffer_size | NR_MAX_BUFFER_SIZE | No | 100 | the maximum buffer size in **KB** (plz, never exceed 1000 which is the POST limit in insights!! otherwise an error will be returned). Data will be sent if interval OR max buffer size is reached whatever comes first.
 | max_request_retries | NR_MAX_REQUEST_RETRIES | No | 5 | The maximum number of retries for sending the data when there are network failures.
@@ -89,7 +90,7 @@ make version - Outputs agent version
 
 ## Issues / Enhancement Requests
 
-Issues and enhancement requests can be submitted in the [issues tab of this repository](https://github.com/aminoz007/logspout/issues).
+Issues and enhancement requests can be submitted in the [issues tab of this repository](https://github.com/aminoz007/siteminder/issues).
 Please search for and review the existing open issues before submitting a new issue.
 
 ## Contributing

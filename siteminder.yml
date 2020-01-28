@@ -1,7 +1,7 @@
 insights_url: "https://insights-collector.newrelic.com/v1/accounts/<your account id>/events" # Required; Insights ingest URL
 insights_key: "Your Key" # Required; Your insights api insert key
 port: "APM for SSO port" # Required; the port where the data is pushed from siteminder
-host: "localhost" # Optional; Default localhost, the server where rhe networkDataPort is open
+host: "localhost" # Optional; Default localhost, the server where the networkDataPort is open
 interval: 30s # Optional; Default 30s, FLush interval: valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h";this is the time we wait before sending the data to NR
 custom_attributes: # Optional; Key value pairs tags to decorate NR events data.
   owner: nr.expert.services
