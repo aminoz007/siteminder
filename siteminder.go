@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -24,7 +25,8 @@ import (
 type Config struct {
 	InsightsURL       string            `yaml:"insights_url"`
 	InsightsKey       string            `yaml:"insights_key"`
-	Port              string            `yaml:"insights_key"`
+	Port              string            `yaml:"port"`
+	Host              string            `yaml:"host"`
 	Interval          string            `yaml:"interval"`
 	CustomAttributes  map[string]string `yaml:"custom_attributes"`
 	Debug             bool              `yaml:"debug"`
@@ -49,7 +51,7 @@ type Metric struct {
 
 // Event contains the data to send to NR
 type Event struct {
-	EventData       map[string]string
+	EventData       map[string]interface{}
 	EventSize       int
 	NumberOfRetries int
 }
@@ -59,7 +61,7 @@ var logger *log.Logger
 
 const (
 	agentVersion      = "1.0.0"
-	eventType         = "siteminderSample"
+	eventType         = "SiteminderSample"
 	configFileName    = "siteminder.yml"
 	logFileName       = "siteminder.log"
 	maxRetriesDefault = 5
@@ -84,25 +86,32 @@ func main() {
 }
 
 func (siteminder *Siteminder) listener() {
-	l, err := net.Listen("tcp", siteminder.Config.Port)
+	l, err := net.Listen("tcp", fmt.Sprint(siteminder.Config.Host, ":", siteminder.Config.Port))
 	if err != nil {
 		logger.Fatal("Error occured when trying to listen to the port:", siteminder.Config.Port, "==>", err)
 	}
 	defer l.Close()
 
-	c, err := l.Accept()
-	if err != nil {
-		logger.Fatal("Error occured when trying to accept a connection:", err)
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			logger.Println("Error occured when trying to accept a connection:", err)
+			return
+		}
+		go siteminder.handleConnection(c)
+	}
+}
+
+func (siteminder *Siteminder) handleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	scanner := bufio.NewScanner(conn)
+	for scanner.Scan() {
+		line := scanner.Text()
+		debug("Reading one line:", line, siteminder.Config.Debug)
+		siteminder.extractMetric(line)
 	}
 
-	for {
-		scanner := bufio.NewScanner(c)
-		for scanner.Scan() {
-			line := scanner.Text()
-			debug("Reading one line:", line, siteminder.Config.Debug)
-			siteminder.extractMetric(line)
-		}
-	}
 }
 
 func (siteminder *Siteminder) extractMetric(line string) {
@@ -125,7 +134,7 @@ func (siteminder *Siteminder) extractMetric(line string) {
 }
 
 func (siteminder *Siteminder) buildEvent(metricObj Metric) {
-	metricEvent := map[string]string{}
+	metricEvent := map[string]interface{}{}
 	metricEvent["eventType"] = eventType
 	metricEvent["agentVersion"] = agentVersion
 	metricEvent["interval"] = siteminder.Config.Interval
@@ -135,7 +144,13 @@ func (siteminder *Siteminder) buildEvent(metricObj Metric) {
 	}
 	metricEvent["metricType"] = metricObj.MetricType
 	metricEvent["metricName"] = metricObj.MetricName
-	metricEvent["metricValue"] = metricObj.MetricValue
+
+	intValue, err := strconv.ParseInt(metricObj.MetricValue, 10, 64)
+	if err != nil {
+		metricEvent["metricValue"] = metricObj.MetricValue
+	} else {
+		metricEvent["metricValue"] = intValue
+	}
 
 	metricEventJSON, err := json.Marshal(metricEvent)
 	if err != nil {
@@ -176,7 +191,7 @@ func (siteminder *Siteminder) readQueue() {
 
 		case <-timeout.C:
 			if len(buffer) > 0 {
-				debug("Flushing buffer because the interval limit is reached:", duration, siteminder.Config.Debug)
+				debug("Flushing buffer because the interval limit was reached:", duration, siteminder.Config.Debug)
 				siteminder.flushBuffer(buffer)
 				timeout.Reset(duration)
 				buffer = make([]Event, 0)
@@ -190,7 +205,7 @@ func (siteminder *Siteminder) readQueue() {
 
 func (siteminder *Siteminder) flushBuffer(events []Event) {
 	var data bytes.Buffer
-	eventsArray := make([]map[string]string, 0)
+	eventsArray := make([]map[string]interface{}, 0)
 	for _, event := range events {
 		eventsArray = append(eventsArray, event.EventData)
 	}
@@ -223,6 +238,8 @@ func (siteminder *Siteminder) flushBuffer(events []Event) {
 	if resp != nil {
 		if resp.StatusCode != http.StatusOK {
 			logger.Println("Received Status Code:", resp.StatusCode, "While Sending Message")
+		} else {
+			debug("Data sent successfully to NR", "", siteminder.Config.Debug)
 		}
 		defer resp.Body.Close()
 	}
@@ -260,23 +277,33 @@ func checkConfig(config *Config) {
 	if url := os.Getenv("NR_INSIGHTS_URL"); url != "" {
 		config.InsightsURL = url
 	} else if config.InsightsURL == "" {
-		logger.Fatal("Required attribute: Insights URL is mssing in your configuration file")
+		logger.Fatal("Required attribute: Insights URL is missing in your configuration file")
 	}
+
 	if key := os.Getenv("NR_INSIGHTS_KEY"); key != "" {
 		config.InsightsKey = key
 	} else if config.InsightsKey == "" {
-		logger.Fatal("Required attribute: Insights Key is mssing in your configuration file")
+		logger.Fatal("Required attribute: Insights Key is missing in your configuration file")
 	}
+
 	if port := os.Getenv("NR_PORT"); port != "" {
 		config.Port = port
 	} else if config.Port == "" {
-		logger.Fatal("Required attribute: Port number is mssing in your configuration file")
+		logger.Fatal("Required attribute: Port number is missing in your configuration file")
 	}
+
 	if interval := os.Getenv("NR_INTERVAL"); interval != "" {
 		config.Interval = interval
 	} else if config.Interval == "" {
 		config.Interval = intervalDefault
 	}
+
+	if host := os.Getenv("NR_HOST"); host != "" {
+		config.Host = host
+	} else if config.Host == "" {
+		config.Host = host
+	}
+
 	if debug := os.Getenv("NR_DEBUG"); debug != "" {
 		b, err := strconv.ParseBool(debug)
 		if err != nil {
@@ -284,6 +311,7 @@ func checkConfig(config *Config) {
 		}
 		config.Debug = b
 	}
+
 	if maxBuffersize := os.Getenv("NR_MAX_BUFFER_SIZE"); maxBuffersize != "" {
 		bufferSize, err := strconv.Atoi(maxBuffersize)
 		if err != nil {
@@ -292,7 +320,14 @@ func checkConfig(config *Config) {
 		config.MaxBufferSize = bufferSize * 1024 // KB
 	} else if config.MaxBufferSize == 0 {
 		config.MaxBufferSize = maxBufferDefault * 1024 // KB
+	} else {
+		config.MaxBufferSize = config.MaxBufferSize * 1024
 	}
+	if config.MaxBufferSize > 1000*1024 {
+		logger.Println("MAX_BUFFER_SIZE limit is 1000KB, using default instead")
+		config.MaxBufferSize = maxBufferDefault * 1024 // KB
+	}
+
 	if maxRequestRetries := os.Getenv("NR_MAX_REQUEST_RETRIES"); maxRequestRetries != "" {
 		maxRetries, err := strconv.Atoi(maxRequestRetries)
 		if err != nil {
@@ -302,9 +337,11 @@ func checkConfig(config *Config) {
 	} else if config.MaxRequestRetries == 0 {
 		config.MaxRequestRetries = maxRetriesDefault
 	}
+
 	if proxy := os.Getenv("NR_PROXY_URL"); proxy != "" {
 		config.InsightsURL = proxy
 	}
+
 	if customAttrs := os.Getenv("NR_CUSTOM_ATTRS"); customAttrs != "" {
 		config.CustomAttributes = getCustomAttrs(customAttrs)
 	}
